@@ -1,6 +1,7 @@
 #include "header.h"
+#include <omp.h>
 
-void run_eigenvalue(Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff)
+void run_eigenvalue(Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff)
 {
   int i_b; // index over batches
   int i_a = -1; // index over active batches
@@ -30,29 +31,33 @@ void run_eigenvalue(Parameters *parameters, Geometry *geometry, Material *materi
       // Set RNG stream for tracking
       set_stream(STREAM_TRACK);
 
-      // Loop over particles
-      for(i_p=0; i_p<parameters->n_particles; i_p++){
+      #pragma omp parallel for shared(i_b, i_g, parameters, geometry, material, source_bank, tally, keff_batch) private(i_p, keff_gen) schedule(static)
+      {
+        // Loop over particles
+        for (i_p = 0; i_p < parameters->n_particles; i_p++) {
 
-	// Set seed for particle i_p by skipping ahead in the random number
-	// sequence stride*(total particles simulated) numbers from the initial
-	// seed. This allows for reproducibility of the particle history.
-        rn_skip((i_b*parameters->n_generations + i_g)*parameters->n_particles + i_p);
+          // Set seed for particle i_p by skipping ahead in the random number
+          // sequence stride*(total particles simulated) numbers from the initial
+          // seed. This allows for reproducibility of the particle history.
+          rn_skip((i_b * parameters->n_generations + i_g) * parameters->n_particles + i_p);
 
-        // Transport the next particle
-        transport(parameters, geometry, material, source_bank, fission_bank, tally, &(source_bank->p[i_p]));
+          // Transport the next particle
+          transport(parameters, geometry, material, source_bank, fission_bank, tally, &(source_bank->p[i_p]));
+        }
+
+        // Switch RNG stream off tracking
+        set_stream(STREAM_OTHER);
+        rn_skip(i_b * parameters->n_generations + i_g);
+
+        // Calculate generation k_effective and accumulate batch k_effective
+        keff_gen = (double) fission_bank->n / source_bank->n;
+        #pragma omp critical
+        keff_batch += keff_gen;
+
+        // Sample new source particles from the particles that were added to the
+        // fission bank during this generation
+        synchronize_bank(source_bank, fission_bank);
       }
-
-      // Switch RNG stream off tracking
-      set_stream(STREAM_OTHER);
-      rn_skip(i_b*parameters->n_generations + i_g);
-
-      // Calculate generation k_effective and accumulate batch k_effective
-      keff_gen = (double) fission_bank->n / source_bank->n;
-      keff_batch += keff_gen;
-
-      // Sample new source particles from the particles that were added to the
-      // fission bank during this generation
-      synchronize_bank(source_bank, fission_bank);
     }
 
     // Calculate k effective

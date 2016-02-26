@@ -1,4 +1,5 @@
 #include "header.h"
+#include <omp.h>
 
 #ifdef _OPENMP
 Bank *fission_bank;
@@ -20,8 +21,6 @@ int main(int argc, char *argv[])
     int n_threads; // number of OpenMP threads
     unsigned long counter; //counter to decide the start pos of master bank copy from sub banks
     Bank *g_fission_bank; //global fission bank
-  #else
-    Bank *fission_bank;
   #endif
 
   // Get inputs: set parameters to default values, parse parameter file,
@@ -61,16 +60,9 @@ int main(int argc, char *argv[])
     {
       n_threads = omp_get_num_threads();
       tid = omp_get_thread_num();
-      if(thread_id == 0){
-        fission_bank = init_bank(2*params->n_particles);
-      }
-      else{
-        fission_bank = init_bank(2*params->n_particles/n_threads);
-      }
+      fission_bank = init_bank(2*params->n_particles/n_threads);
     }
     g_fission_bank = init_bank(2*params->n_particles);
-  #else
-    fission_bank = init_bank(2*params->n_particles);
   #endif
 
   // Set up array for k effective
@@ -80,20 +72,14 @@ int main(int argc, char *argv[])
   border_print();
   printf("%-15s %-15s %-15s\n", "BATCH", "KEFF", "MEAN KEFF");
 
-  // Start time
   #ifdef _OPENMP
-    t1 = omp_get_wtime();;
-  #else
-    t1 = timer();
-  #endif
+    // Start time
+    t1 = omp_get_wtime();
 
-  run_eigenvalue(parameters, geometry, material, source_bank, fission_bank, tally, keff);
+    run_eigenvalue(g_fission_bank, parameters, geometry, material, source_bank, fission_bank, tally, keff);
 
-  // Stop time
-  #ifdef _OPENMP
-    t2 = omp_get_wtime();;
-  #else
-    t2 = timer();
+    // Stop time
+    t2 = omp_get_wtime();
   #endif
 
   printf("Simulation time: %f secs\n", t2-t1);
