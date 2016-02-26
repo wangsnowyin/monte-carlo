@@ -63,6 +63,9 @@ typedef struct Parameters_{
   int write_keff; // whether to output keff
   char *tally_file; // path to write tallies to
   char *keff_file; // path to write keff to
+
+  int n_threads; //the number of threads of OpenMP
+
 } Parameters;
 
 typedef struct Particle_{

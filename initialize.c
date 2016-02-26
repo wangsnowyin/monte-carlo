@@ -25,6 +25,10 @@ Parameters *init_parameters(void)
   p->tally_file = NULL;
   p->keff_file = NULL;
 
+#ifdef _OPENMP
+  p->n_threads = omp_get_num_procs();
+#endif
+
   return p;
 }
 
