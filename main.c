@@ -4,7 +4,6 @@
 #ifdef _OPENMP
 Bank *fission_bank;
 int tid; //thread id
-#pragma omp threadprivate(fission_bank, tid)
 #endif
 
 int main(int argc, char *argv[])
@@ -50,8 +49,6 @@ int main(int argc, char *argv[])
   source_bank = init_source_bank(parameters, geometry);
 
   // Create fission bank
-  //fission_bank = init_fission_bank(parameters);
-  /*change to openMP*/
   #ifdef _OPENMP
     omp_set_num_threads(params->n_threads); // Set number of openmp threads
 
@@ -76,7 +73,7 @@ int main(int argc, char *argv[])
     // Start time
     t1 = omp_get_wtime();
 
-    run_eigenvalue(g_fission_bank, parameters, geometry, material, source_bank, fission_bank, tally, keff);
+    run_eigenvalue(tid, counter, g_fission_bank, parameters, geometry, material, source_bank, fission_bank, tally, keff);
 
     // Stop time
     t2 = omp_get_wtime();
@@ -91,8 +88,6 @@ int main(int argc, char *argv[])
       free_bank(fission_bank);
     }
     free_bank(g_fission_bank);
-  #else
-    free_bank(fission_bank);
   #endif
 
   free(keff);

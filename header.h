@@ -167,8 +167,8 @@ void cross_surface(Geometry *geometry, Particle *p);
 void collision(Material *material, Bank *fission_bank, double nu, Particle *p);
 
 // eigenvalue.c function prototypes
-void run_eigenvalue(Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff);
-void synchronize_bank(Bank *source_bank, Bank *fission_bank);
+void run_eigenvalue(int tid, unsigned long counter, Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff);
+void synchronize_bank(int tid, unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters);
 void calculate_keff(double *keff, double *mean, double *std, int n);
 
 // tally.c function prototypes

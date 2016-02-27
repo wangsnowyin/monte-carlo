@@ -1,7 +1,7 @@
 #include "header.h"
 #include <omp.h>
 
-void run_eigenvalue(Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff)
+void run_eigenvalue(int tid, unsigned long counter, Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff)
 {
   int i_b; // index over batches
   int i_a = -1; // index over active batches
@@ -31,7 +31,7 @@ void run_eigenvalue(Bank *g_fission_bank, Parameters *parameters, Geometry *geom
       // Set RNG stream for tracking
       set_stream(STREAM_TRACK);
 
-      #pragma omp parallel for shared(i_b, i_g, parameters, geometry, material, source_bank, tally, keff_batch) private(i_p, keff_gen) schedule(static)
+      #pragma omp parallel for shared(i_b, i_g, parameters, geometry, material, source_bank, tally, keff_batch) private(i_p, keff_gen, fission_bank) schedule(static)
       {
         // Loop over particles
         for (i_p = 0; i_p < parameters->n_particles; i_p++) {
@@ -53,12 +53,18 @@ void run_eigenvalue(Bank *g_fission_bank, Parameters *parameters, Geometry *geom
         keff_gen = (double) fission_bank->n / source_bank->n;
         #pragma omp critical
         keff_batch += keff_gen;
+      }
+
+      #ifdef _OPNEMP
+        //initialize first pos for memcpy
+        counter = 0;
 
         // Sample new source particles from the particles that were added to the
         // fission bank during this generation
-        synchronize_bank(source_bank, fission_bank);
-      }
+        synchronize_bank(tid, counter, g_fission_bank, source_bank, fission_bank, parameters);
+      #endif
     }
+
 
     // Calculate k effective
     keff_batch /= parameters->n_generations;
@@ -87,18 +93,31 @@ void run_eigenvalue(Bank *g_fission_bank, Parameters *parameters, Geometry *geom
   return;
 }
 
-void synchronize_bank(Bank *source_bank, Bank *fission_bank)
+void synchronize_bank(int tid, unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters)
 {
+  #pragma omp parallel for shared(g_fission_bank, counter) private(fission_bank, tid) schedule(static)
+  {
+    #pragma omp for ordered
+    for(tid = 0; tid < parameters->n_threads; tid++){
+      #pragma omp ordered
+      {
+        memcpy(&(g_fission_bank->p[counter]), fission_bank->p, fission_bank->n * sizeof(Particle));
+        counter += fission_bank->n;
+      }
+    }
+  }
+  g_fission_bank->n = counter;
+
   unsigned long i, j;
   unsigned long n_s = source_bank->n;
-  unsigned long n_f = fission_bank->n;
+  unsigned long n_f = g_fission_bank->n;
 
   // If the fission bank is larger than the source bank, randomly select
   // n_particles sites from the fission bank to create the new source bank
   if(n_f >= n_s){
 
     // Copy first n_particles sites from fission bank to source bank
-    memcpy(source_bank->p, fission_bank->p, n_s*sizeof(Particle));
+    memcpy(source_bank->p, g_fission_bank->p, n_s*sizeof(Particle));
 
     // Replace elements with decreasing probability, such that after final
     // iteration each particle in fission bank will have equal probability of
@@ -106,7 +125,7 @@ void synchronize_bank(Bank *source_bank, Bank *fission_bank)
     for(i=n_s; i<n_f; i++){
       j = rni(0, i+1);
       if(j<n_s){
-        memcpy(&(source_bank->p[j]), &(fission_bank->p[i]), sizeof(Particle));
+        memcpy(&(source_bank->p[j]), &(g_fission_bank->p[i]), sizeof(Particle));
       }
     }
   }
@@ -119,14 +138,18 @@ void synchronize_bank(Bank *source_bank, Bank *fission_bank)
     // First randomly sample particles from fission bank
     for(i=0; i<(n_s-n_f); i++){
       j = rni(0, n_f);
-      memcpy(&(source_bank->p[i]), &(fission_bank->p[j]), sizeof(Particle));
+      memcpy(&(source_bank->p[i]), &(g_fission_bank->p[j]), sizeof(Particle));
     }
 
     // Fill remaining source bank sites with fission bank
-    memcpy(&(source_bank->p[n_s-n_f]), fission_bank->p, n_f*sizeof(Particle));
+    memcpy(&(source_bank->p[n_s-n_f]), g_fission_bank->p, n_f*sizeof(Particle));
   }
 
-  fission_bank->n = 0;
+  g_fission_bank->n = 0;
+  #pragma omp parallel for private(fission_bank)
+  {
+    fission_bank->n = 0;
+  }
 
   return;
 }
