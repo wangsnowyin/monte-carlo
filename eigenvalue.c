@@ -1,7 +1,7 @@
 #include "header.h"
 #include <omp.h>
 
-void run_eigenvalue(int tid, unsigned long counter, Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff)
+void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff)
 {
   int i_b; // index over batches
   int i_a = -1; // index over active batches
@@ -61,7 +61,7 @@ void run_eigenvalue(int tid, unsigned long counter, Bank *g_fission_bank, Parame
 
         // Sample new source particles from the particles that were added to the
         // fission bank during this generation
-        synchronize_bank(tid, counter, g_fission_bank, source_bank, fission_bank, parameters);
+        synchronize_bank(counter, g_fission_bank, source_bank, fission_bank, parameters);
       #endif
     }
 
@@ -93,12 +93,13 @@ void run_eigenvalue(int tid, unsigned long counter, Bank *g_fission_bank, Parame
   return;
 }
 
-void synchronize_bank(int tid, unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters)
+void synchronize_bank(unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters)
 {
-  #pragma omp parallel for shared(g_fission_bank, counter) private(fission_bank, tid) schedule(static)
+  int n; //index over threads
+  #pragma omp parallel for shared(g_fission_bank, counter, n) private(fission_bank) schedule(static)
   {
     #pragma omp for ordered
-    for(tid = 0; tid < parameters->n_threads; tid++){
+    for(n = 0; n < parameters->n_threads; n++){
       #pragma omp ordered
       {
         memcpy(&(g_fission_bank->p[counter]), fission_bank->p, fission_bank->n * sizeof(Particle));

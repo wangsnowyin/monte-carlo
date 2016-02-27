@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     // Start time
     t1 = omp_get_wtime();
 
-    run_eigenvalue(tid, counter, g_fission_bank, parameters, geometry, material, source_bank, fission_bank, tally, keff);
+    run_eigenvalue(counter, g_fission_bank, parameters, geometry, material, source_bank, fission_bank, tally, keff);
 
     // Stop time
     t2 = omp_get_wtime();
