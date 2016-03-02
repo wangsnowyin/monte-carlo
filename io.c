@@ -326,6 +326,9 @@ void read_CLI(int argc, char *argv[], Parameters *parameters)
       }
       else print_error("Error reading command line input '-keff_file'");
     }
+    else if(arg[1] == '-'){
+      continue;
+    }
 
     // Unknown command line option
     else print_error("Error reading command line input");

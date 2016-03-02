@@ -6,6 +6,7 @@ void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *par
   int i_b; // index over batches
   int i_a = -1; // index over active batches
   int i_g; // index over generations
+  int index; //index over threads
   unsigned long i_p; // index over particles
   double keff_gen = 1; // keff of generation
   double keff_batch; // keff of batch
@@ -31,8 +32,15 @@ void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *par
       // Set RNG stream for tracking
       set_stream(STREAM_TRACK);
 
-      #pragma omp parallel for shared(i_b, i_g, parameters, geometry, material, source_bank, tally, keff_batch) private(i_p, keff_gen, fission_bank) schedule(static)
+      //initialize first pos for memcpy
+      counter = 0;
+
+      #pragma omp parallel shared(counter, i_b, i_g, parameters, geometry, material, source_bank, tally, keff_batch) private(i_p, keff_gen, fission_bank)
       {
+        int n_threads = omp_get_num_threads();
+        fission_bank = init_bank(2 * parameters->n_particles / n_threads);
+
+        #pragma omp for schedule(static)
         // Loop over particles
         for (i_p = 0; i_p < parameters->n_particles; i_p++) {
 
@@ -53,16 +61,14 @@ void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *par
         keff_gen = (double) fission_bank->n / source_bank->n;
         #pragma omp critical
         keff_batch += keff_gen;
-      }
-
-      #ifdef _OPNEMP
-        //initialize first pos for memcpy
-        counter = 0;
 
         // Sample new source particles from the particles that were added to the
         // fission bank during this generation
-        synchronize_bank(counter, g_fission_bank, source_bank, fission_bank, parameters);
-      #endif
+        synchronize_bank(index, counter, g_fission_bank, source_bank, fission_bank, parameters);
+
+        #pragma omp barrier
+        free_bank(fission_bank);
+      }
     }
 
 
@@ -93,20 +99,18 @@ void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *par
   return;
 }
 
-void synchronize_bank(unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters)
+void synchronize_bank(int index, unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters)
 {
-  int n; //index over threads
-  #pragma omp parallel for shared(g_fission_bank, counter, n) private(fission_bank) schedule(static)
-  {
-    #pragma omp for ordered
-    for(n = 0; n < parameters->n_threads; n++){
+    #pragma omp for ordered schedule(static)
+    for(index = 0; index < parameters->n_threads; index++){
       #pragma omp ordered
       {
         memcpy(&(g_fission_bank->p[counter]), fission_bank->p, fission_bank->n * sizeof(Particle));
         counter += fission_bank->n;
       }
     }
-  }
+
+  #pragma omp barrier
   g_fission_bank->n = counter;
 
   unsigned long i, j;
@@ -147,10 +151,7 @@ void synchronize_bank(unsigned long counter, Bank *g_fission_bank, Bank *source_
   }
 
   g_fission_bank->n = 0;
-  #pragma omp parallel for private(fission_bank)
-  {
-    fission_bank->n = 0;
-  }
+  fission_bank->n = 0;
 
   return;
 }

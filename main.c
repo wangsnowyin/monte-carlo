@@ -3,7 +3,6 @@
 
 #ifdef _OPENMP
 Bank *fission_bank;
-int tid; //thread id
 #endif
 
 int main(int argc, char *argv[])
@@ -17,8 +16,7 @@ int main(int argc, char *argv[])
   double t1, t2; // timers
 
   #ifdef _OPENMP
-    int n_threads; // number of OpenMP threads
-    unsigned long counter; //counter to decide the start pos of master bank copy from sub banks
+    unsigned long counter = 0; //counter to decide the start pos of master bank copy from sub banks
     Bank *g_fission_bank; //global fission bank
   #endif
 
@@ -50,16 +48,10 @@ int main(int argc, char *argv[])
 
   // Create fission bank
   #ifdef _OPENMP
-    omp_set_num_threads(params->n_threads); // Set number of openmp threads
+    omp_set_num_threads(parameters->n_threads); // Set number of openmp threads
 
-    // Allocate fission bank for each thread and one master fission bank
-    #pragma omp parallel
-    {
-      n_threads = omp_get_num_threads();
-      tid = omp_get_thread_num();
-      fission_bank = init_bank(2*params->n_particles/n_threads);
-    }
-    g_fission_bank = init_bank(2*params->n_particles);
+    // Allocate one master fission bank
+    g_fission_bank = init_bank(2*parameters->n_particles);
   #endif
 
   // Set up array for k effective
@@ -83,10 +75,6 @@ int main(int argc, char *argv[])
 
   // Free memory
   #ifdef _OPENMP
-    #pragma omp parallel
-    {
-      free_bank(fission_bank);
-    }
     free_bank(g_fission_bank);
   #endif
 

@@ -1,4 +1,5 @@
 #include "header.h"
+#include <omp.h>
 
 Parameters *init_parameters(void)
 {

@@ -1,8 +1,9 @@
 # User options
 
 COMPILER = gnu
-OPTIMIZE = yes
-DEBUG    = no
+OPTIMIZE = no
+DEBUG    = yes
+OPENMP   = yes
 
 # Program and source code
 
@@ -39,6 +40,9 @@ endif
 
 ifeq ($(COMPILER),gnu)
   CC = gcc
+  ifeq ($(OPENMP),yes)
+     CFLAGS += -fopenmp
+  endif
 endif
 
 # Targets to build
