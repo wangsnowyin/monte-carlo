@@ -1,4 +1,5 @@
 #include "header.h"
+#include <omp.h>
 
 typedef struct RNG_Parameters_{
   unsigned long long mult;   // multiplier g
@@ -17,6 +18,7 @@ static const RNG_Parameters RNG = {9219741426499971445ULL, 9223372036854775808UL
 int stream;
 unsigned long long seed0[N_STREAMS];
 unsigned long long seed[N_STREAMS];
+#pragma omp threadprivate(seed)
 
 // Linear congruential random number generator: seed = (mult*seed + inc) % mod
 double rn(void)

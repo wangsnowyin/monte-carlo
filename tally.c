@@ -1,4 +1,5 @@
 #include "header.h"
+#include <omp.h>
 
 // Simple flux tally
 void score_tally(Parameters *parameters, Material *material, Tally *tally, Particle *p)
@@ -15,6 +16,7 @@ void score_tally(Parameters *parameters, Material *material, Tally *tally, Parti
   iz = p->z/tally->dz;
 
   // Scalar flux
+  #pragma omp atomic
   tally->flux[ix + tally->n*iy + tally->n*tally->n*iz] += 1./(vol * material->xs_t * parameters->n_particles);
 
   return;

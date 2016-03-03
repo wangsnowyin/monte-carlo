@@ -59,14 +59,14 @@ void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *par
 
         // Calculate generation k_effective and accumulate batch k_effective
         keff_gen = (double) fission_bank->n / source_bank->n;
-        #pragma omp critical
+        #pragma omp atomic
         keff_batch += keff_gen;
 
         // Sample new source particles from the particles that were added to the
         // fission bank during this generation
         synchronize_bank(index, counter, g_fission_bank, source_bank, fission_bank, parameters);
 
-        #pragma omp barrier
+        //#pragma omp barrier
         free_bank(fission_bank);
       }
     }
@@ -113,46 +113,48 @@ void synchronize_bank(int index, unsigned long counter, Bank *g_fission_bank, Ba
   #pragma omp barrier
   g_fission_bank->n = counter;
 
-  unsigned long i, j;
-  unsigned long n_s = source_bank->n;
-  unsigned long n_f = g_fission_bank->n;
+  int tid;
+  tid = omp_get_thread_num();
+  if(tid == 0){
+    unsigned long i, j;
+    unsigned long n_s = source_bank->n;
+    unsigned long n_f = g_fission_bank->n;
 
-  // If the fission bank is larger than the source bank, randomly select
-  // n_particles sites from the fission bank to create the new source bank
-  if(n_f >= n_s){
+    // If the fission bank is larger than the source bank, randomly select
+    // n_particles sites from the fission bank to create the new source bank
+    if(n_f >= n_s){
 
-    // Copy first n_particles sites from fission bank to source bank
-    memcpy(source_bank->p, g_fission_bank->p, n_s*sizeof(Particle));
+      // Copy first n_particles sites from fission bank to source bank
+      memcpy(source_bank->p, g_fission_bank->p, n_s*sizeof(Particle));
 
-    // Replace elements with decreasing probability, such that after final
-    // iteration each particle in fission bank will have equal probability of
-    // being selected for source bank
-    for(i=n_s; i<n_f; i++){
-      j = rni(0, i+1);
-      if(j<n_s){
-        memcpy(&(source_bank->p[j]), &(g_fission_bank->p[i]), sizeof(Particle));
+      // Replace elements with decreasing probability, such that after final
+      // iteration each particle in fission bank will have equal probability of
+      // being selected for source bank
+      for(i=n_s; i<n_f; i++){
+        j = rni(0, i+1);
+        if(j<n_s){
+          memcpy(&(source_bank->p[j]), &(g_fission_bank->p[i]), sizeof(Particle));
+        }
       }
     }
-  }
+    // If the fission bank is smaller than the source bank, use all fission bank
+    // sites for the source bank and randomly sample remaining particles from
+    // fission bank
+    else{
 
-  // If the fission bank is smaller than the source bank, use all fission bank
-  // sites for the source bank and randomly sample remaining particles from
-  // fission bank
-  else{
+      // First randomly sample particles from fission bank
+      for(i=0; i<(n_s-n_f); i++){
+        j = rni(0, n_f);
+        memcpy(&(source_bank->p[i]), &(g_fission_bank->p[j]), sizeof(Particle));
+      }
 
-    // First randomly sample particles from fission bank
-    for(i=0; i<(n_s-n_f); i++){
-      j = rni(0, n_f);
-      memcpy(&(source_bank->p[i]), &(g_fission_bank->p[j]), sizeof(Particle));
+      // Fill remaining source bank sites with fission bank
+      memcpy(&(source_bank->p[n_s-n_f]), g_fission_bank->p, n_f*sizeof(Particle));
     }
-
-    // Fill remaining source bank sites with fission bank
-    memcpy(&(source_bank->p[n_s-n_f]), g_fission_bank->p, n_f*sizeof(Particle));
   }
 
   g_fission_bank->n = 0;
   fission_bank->n = 0;
-
   return;
 }
 
