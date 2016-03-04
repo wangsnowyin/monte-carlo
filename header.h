@@ -155,6 +155,7 @@ Bank *init_bank(unsigned long n_particles);
 void sample_source_particle(Geometry *geometry, Particle *p);
 void sample_fission_particle(Particle *p, Particle *p_old);
 void resize_particles(Bank *b);
+void get_particle(Particle *dest, Particle *source);
 void free_bank(Bank *b);
 void free_material(Material *material);
 void free_tally(Tally *tally);
@@ -168,7 +169,7 @@ void collision(Material *material, Bank *fission_bank, double nu, Particle *p);
 
 // eigenvalue.c function prototypes
 void run_eigenvalue(unsigned long counter, Bank *g_fission_bank, Parameters *parameters, Geometry *geometry, Material *material, Bank *source_bank, Bank *fission_bank, Tally *tally, double *keff);
-void synchronize_bank(int index, unsigned long counter, Bank *g_fission_bank, Bank *source_bank, Bank *fission_bank, Parameters *parameters);
+void synchronize_bank(Bank *g_fission_bank, Bank *source_bank);
 void calculate_keff(double *keff, double *mean, double *std, int n);
 
 // tally.c function prototypes

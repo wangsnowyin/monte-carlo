@@ -26,10 +26,6 @@ Parameters *init_parameters(void)
   p->tally_file = NULL;
   p->keff_file = NULL;
 
-#ifdef _OPENMP
-  p->n_threads = omp_get_num_procs();
-#endif
-
   return p;
 }
 
@@ -177,6 +173,20 @@ void resize_particles(Bank *b)
   b->p = realloc(b->p, sizeof(Particle)*2*b->sz);
   b->sz = 2*b->sz;
 
+  return;
+}
+
+void get_particle(Particle *dest, Particle *source)
+{
+  dest->alive = source->alive;
+  dest->mu = source->mu;
+  dest->phi = source->phi;
+  dest->u = source->u;
+  dest->v = source->v;
+  dest->w = source->w;
+  dest->x = source->x;
+  dest->y = source->y;
+  dest->z = source->z;
   return;
 }
 

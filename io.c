@@ -326,8 +326,10 @@ void read_CLI(int argc, char *argv[], Parameters *parameters)
       }
       else print_error("Error reading command line input '-keff_file'");
     }
-    else if(arg[1] == '-'){
-      continue;
+    else if(strcmp(arg, "-threads") == 0){
+      if(++i < argc){
+        parameters->n_threads = atoi(argv[i]);
+      }
     }
 
     // Unknown command line option

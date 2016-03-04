@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
   read_CLI(argc, argv, parameters);
   print_parameters(parameters);
 
+
   // Set initial RNG seed
   set_initial_seed(parameters->seed);
   set_stream(STREAM_INIT);
@@ -49,7 +50,7 @@ int main(int argc, char *argv[])
   // Create fission bank
   #ifdef _OPENMP
     omp_set_num_threads(parameters->n_threads); // Set number of openmp threads
-
+    printf("threads num: %d\n", parameters->n_threads);
     // Allocate one master fission bank
     g_fission_bank = init_bank(2*parameters->n_particles);
   #endif
